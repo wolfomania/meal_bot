@@ -1,7 +1,7 @@
 import json
 import re
 
-from google import genai
+import google.genai as genai
 from google.genai import types
 
 import config
@@ -52,7 +52,7 @@ async def analyze_meal(audio_path: str, frame_paths: list[str]) -> MealEntry:
     parts.append(NUTRITION_PROMPT)
 
     response = client.models.generate_content(
-        model='gemini-2.5-flash-lite',
+        model='gemini-3.1-flash-lite-preview',
         contents=parts,
         config=types.GenerateContentConfig(
             response_mime_type='application/json',
