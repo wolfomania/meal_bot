@@ -17,7 +17,7 @@ def _get_client() -> Client:
 
 
 def log_meal(entry: MealEntry) -> None:
-    """Write a MealEntry to the Notion database."""
+    """Write one MealEntry to the Notion database."""
     client = _get_client()
     client.pages.create(
         parent={"database_id": config.NOTION_DATABASE_ID},
@@ -51,3 +51,9 @@ def log_meal(entry: MealEntry) -> None:
             },
         },
     )
+
+
+def log_meals(entries: list[MealEntry]) -> None:
+    """Write all detected meals to the Notion database."""
+    for entry in entries:
+        log_meal(entry)

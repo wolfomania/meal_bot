@@ -9,21 +9,28 @@ import google.genai as genai
 from google.genai import types
 
 import config
-from models import MealEntry
+from models import MealAnalysis
 
 
-NUTRITION_PROMPT = """You are a nutrition analysis assistant. The user has sent a video note describing their meal.
-Analyze the audio description and the video frames showing the food.
-Return a JSON object with the meal details. Be precise with calorie and macro estimates based on typical serving sizes.
-Meal type should be one of: Breakfast, Lunch, Dinner, Snack.
-For food_items, list each distinct food item or ingredient separately.
-For notes, include any relevant observations from the audio or video."""
+NUTRITION_PROMPT = """You are an expert nutrition analyst.
+Analyze the provided video and spoken content to detect meal occasions and estimate nutrition per occasion.
+Critical rule:
+- Each distinct eating occasion must be a separate item in `meals`.
+- If 2+ meals are detected, output 2+ `meals` entries (never merge them).
+- Use visual + spoken boundary cues (scene/time/context shifts, explicit meal transitions, different food sets).
+- If boundary is ambiguous, prefer splitting into separate meals and note uncertainty in `notes`.
+Additional rules:
+- Keep meal entries in chronological order.
+- Use realistic serving-size assumptions and grounded calorie/macro estimates.
+- Keep names concise and human-readable.
+- Return only valid JSON that strictly matches the provided schema (no markdown, no extra keys, no extra text)."""
 
 PRIMARY_MODEL = "gemini-3.1-flash-lite-preview"
 FALLBACK_MODEL = "gemini-2.5-flash-lite"
 GEMINI_MAX_RETRIES = 5
 GEMINI_BASE_DELAY_SECONDS = 1.0
 GEMINI_MAX_DELAY_SECONDS = 12.0
+GEMINI_THINKING_LEVEL = types.ThinkingLevel.MEDIUM
 
 _client: genai.Client | None = None
 logger = logging.getLogger(__name__)
@@ -75,7 +82,10 @@ async def _generate_content_with_retries(
                 contents=parts,
                 config=types.GenerateContentConfig(
                     response_mime_type='application/json',
-                    response_schema=MealEntry.model_json_schema(),
+                    response_schema=MealAnalysis.model_json_schema(),
+                    thinking_config=types.ThinkingConfig(
+                        thinking_level=GEMINI_THINKING_LEVEL,
+                    ),
                 ),
             )
         except Exception as error:
@@ -101,23 +111,17 @@ async def _generate_content_with_retries(
     raise RuntimeError("Unreachable retry state")
 
 
-async def analyze_meal(audio_path: str, frame_paths: list[str]) -> MealEntry:
-    """Send audio + frames to Gemini and return a parsed MealEntry."""
+async def analyze_meal(video_path: str) -> MealAnalysis:
+    """Send full MP4 video note to Gemini and return parsed meal entries."""
     client = _get_client()
 
-    async with aiofiles.open(audio_path, 'rb') as f:
-        audio_bytes = await f.read()
+    async with aiofiles.open(video_path, 'rb') as f:
+        video_bytes = await f.read()
 
     parts: list = [
-        types.Part.from_bytes(data=audio_bytes, mime_type='audio/wav'),
+        types.Part.from_bytes(data=video_bytes, mime_type='video/mp4'),
+        NUTRITION_PROMPT,
     ]
-
-    for frame_path in frame_paths:
-        async with aiofiles.open(frame_path, 'rb') as f:
-            frame_bytes = await f.read()
-        parts.append(types.Part.from_bytes(data=frame_bytes, mime_type='image/jpeg'))
-
-    parts.append(NUTRITION_PROMPT)
 
     try:
         response = await _generate_content_with_retries(client, parts, PRIMARY_MODEL)
@@ -133,4 +137,4 @@ async def analyze_meal(audio_path: str, frame_paths: list[str]) -> MealEntry:
     raw = response.text
     raw = _strip_fences(raw)
     data = json.loads(raw)
-    return MealEntry(**data)
+    return MealAnalysis(**data)

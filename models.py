@@ -19,3 +19,13 @@ class MealEntry(BaseModel):
         description="Distinct foods or ingredients included in the meal."
     )
     notes: str = Field(description="Additional observations and assumptions.")
+
+
+class MealAnalysis(BaseModel):
+    meals: list[MealEntry] = Field(
+        min_length=1,
+        description=(
+            "One or more meal entries detected from the video. "
+            "Split into multiple entries when the clip contains separate meals."
+        ),
+    )

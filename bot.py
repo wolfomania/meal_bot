@@ -11,10 +11,9 @@ from telegram.ext import (
 )
 
 import config
-from ffmpeg_utils import extract_audio, extract_frames
 from gemini_client import analyze_meal
 from models import MealEntry
-from notion_logger import log_meal
+from notion_logger import log_meals
 
 logging.basicConfig(
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
@@ -35,17 +34,27 @@ def _is_authorized_user(update: Update) -> bool:
     return username == ALLOWED_USERNAME
 
 
-def _format_logged_entry(entry: MealEntry) -> str:
+def _format_logged_entry(entry: MealEntry, index: int) -> str:
     items_str = ', '.join(entry.food_items[:5])
     if len(entry.food_items) > 5:
         items_str += f' +{len(entry.food_items) - 5} more'
 
     return (
-        f"Logged: {entry.meal_name}\n"
+        f"{index}. {entry.meal_name}\n"
         f"{entry.meal_type} | {entry.calories} kcal\n"
         f"P: {entry.protein_g}g | C: {entry.carbs_g}g | F: {entry.fat_g}g\n"
         f"Items: {items_str}"
     )
+
+
+def _format_logged_entries(entries: list[MealEntry]) -> str:
+    meal_count = len(entries)
+    header = f"Logged {meal_count} meal{'s' if meal_count != 1 else ''}:"
+    body = "\n\n".join(
+        _format_logged_entry(entry, idx)
+        for idx, entry in enumerate(entries, start=1)
+    )
+    return f"{header}\n\n{body}"
 
 
 def _retry_keyboard() -> InlineKeyboardMarkup:
@@ -54,25 +63,17 @@ def _retry_keyboard() -> InlineKeyboardMarkup:
     )
 
 
-async def _process_video_note(file_id: str, duration: float, context: ContextTypes.DEFAULT_TYPE) -> MealEntry:
+async def _process_video_note(file_id: str, context: ContextTypes.DEFAULT_TYPE) -> list[MealEntry]:
     with tempfile.TemporaryDirectory() as tmpdir:
-        # Download video note
         tg_file = await context.bot.get_file(file_id)
         video_path = f"{tmpdir}/video.mp4"
         await tg_file.download_to_drive(video_path)
 
-        # Extract audio and frames via FFmpeg
-        audio_path = f"{tmpdir}/audio.wav"
-        await extract_audio(video_path, audio_path)
-        frame_paths = await extract_frames(video_path, tmpdir, duration=duration)
+        analysis = await analyze_meal(video_path)
+        entries = analysis.meals
+        log_meals(entries)
 
-        # Analyze with Gemini
-        entry = await analyze_meal(audio_path, frame_paths)
-
-        # Log to Notion
-        log_meal(entry)
-
-    return entry
+    return entries
 
 
 async def handle_video_note(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -95,17 +96,15 @@ async def handle_video_note(update: Update, context: ContextTypes.DEFAULT_TYPE) 
         await message.reply_text("Please send a video note.")
         return
 
-    duration = float(vn.duration)
     context.user_data["last_video_note"] = {
         "file_id": vn.file_id,
-        "duration": duration,
     }
 
     await message.reply_text("Processing your meal video...")
 
     try:
-        entry = await _process_video_note(vn.file_id, duration, context)
-        await message.reply_text(_format_logged_entry(entry))
+        entries = await _process_video_note(vn.file_id, context)
+        await message.reply_text(_format_logged_entries(entries))
 
     except Exception as e:
         logger.exception("Pipeline failed for video note")
@@ -139,9 +138,8 @@ async def handle_retry(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
         return
 
     file_id = last_video_note.get("file_id")
-    duration = float(last_video_note.get("duration", 0))
 
-    if not file_id or duration <= 0:
+    if not file_id:
         if query.message is not None:
             await query.message.reply_text("Saved retry data is invalid. Send a new video note.")
         return
@@ -150,9 +148,9 @@ async def handle_retry(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
         await query.message.reply_text("Retrying your last meal video...")
 
     try:
-        entry = await _process_video_note(file_id, duration, context)
+        entries = await _process_video_note(file_id, context)
         if query.message is not None:
-            await query.message.reply_text(_format_logged_entry(entry))
+            await query.message.reply_text(_format_logged_entries(entries))
         await query.edit_message_reply_markup(reply_markup=None)
 
     except Exception as e:
@@ -174,4 +172,3 @@ def main() -> None:
 
 if __name__ == '__main__':
     main()
-
