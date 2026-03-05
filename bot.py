@@ -110,7 +110,7 @@ async def handle_video_note(update: Update, context: ContextTypes.DEFAULT_TYPE) 
     except Exception as e:
         logger.exception("Pipeline failed for video note")
         await message.reply_text(
-            f"Sorry, something went wrong: {type(e).__name__}. Please try again.",
+            f"Sorry, something went wrong: {type(e).__name__}. Tap Retry to try again.",
             reply_markup=_retry_keyboard(),
         )
 
@@ -159,7 +159,7 @@ async def handle_retry(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
         logger.exception("Retry failed")
         if query.message is not None:
             await query.message.reply_text(
-                f"Retry failed: {type(e).__name__}. Try again.",
+                f"Retry failed: {type(e).__name__}. Tap Retry to try again.",
                 reply_markup=_retry_keyboard(),
             )
 
@@ -174,3 +174,4 @@ def main() -> None:
 
 if __name__ == '__main__':
     main()
+
