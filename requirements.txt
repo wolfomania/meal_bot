@@ -3,3 +3,4 @@ google-genai==1.10.0
 notion-client==2.7.0
 pydantic==2.7.4
 python-dotenv==1.0.1
+aiofiles==25.1.0

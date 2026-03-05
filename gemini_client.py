@@ -1,6 +1,7 @@
 import json
 import re
 
+import aiofiles
 import google.genai as genai
 from google.genai import types
 
@@ -37,16 +38,16 @@ async def analyze_meal(audio_path: str, frame_paths: list[str]) -> MealEntry:
     """Send audio + frames to Gemini 2.5 Flash Lite and return a parsed MealEntry."""
     client = _get_client()
 
-    with open(audio_path, 'rb') as f:
-        audio_bytes = f.read()
+    async with aiofiles.open(audio_path, 'rb') as f:
+        audio_bytes = await f.read()
 
     parts: list = [
         types.Part.from_bytes(data=audio_bytes, mime_type='audio/wav'),
     ]
 
     for frame_path in frame_paths:
-        with open(frame_path, 'rb') as f:
-            frame_bytes = f.read()
+        async with aiofiles.open(frame_path, 'rb') as f:
+            frame_bytes = await f.read()
         parts.append(types.Part.from_bytes(data=frame_bytes, mime_type='image/jpeg'))
 
     parts.append(NUTRITION_PROMPT)
@@ -64,3 +65,4 @@ async def analyze_meal(audio_path: str, frame_paths: list[str]) -> MealEntry:
     raw = _strip_fences(raw)
     data = json.loads(raw)
     return MealEntry(**data)
+

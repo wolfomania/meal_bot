@@ -19,7 +19,7 @@ async def extract_frames(
     input_path: str,
     tmpdir: str,
     duration: float,
-    n: int = 4,
+    n: int = 8,
 ) -> list[str]:
     """Extract n evenly-spaced JPEG keyframes from a video file.
 

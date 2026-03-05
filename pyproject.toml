@@ -11,4 +11,5 @@ dependencies = [
     "python-dotenv>=1.2.2",
     "python-telegram-bot>=22.6",
     "google-genai>=1.10.0",
+    "aiofiles>=25.1.0",
 ]
