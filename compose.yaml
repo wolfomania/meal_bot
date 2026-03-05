@@ -1,0 +1,22 @@
+services:
+  meal-bot:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: meal-bot:latest
+    env_file:
+      - .env
+    restart: unless-stopped
+    read_only: true
+    tmpfs:
+      - /tmp:size=64m,noexec,nosuid,nodev
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    healthcheck:
+      test: ["CMD-SHELL", "python -c 'import meal_bot'"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s

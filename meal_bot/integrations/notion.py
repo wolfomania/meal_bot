@@ -2,8 +2,8 @@ from datetime import date
 
 from notion_client import Client
 
-import config
-from models import MealEntry
+from meal_bot import config
+from meal_bot.core.models import MealEntry
 
 
 _notion: Client | None = None

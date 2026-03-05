@@ -10,10 +10,10 @@ from telegram.ext import (
     filters,
 )
 
-import config
-from gemini_client import analyze_meal
-from models import MealEntry
-from notion_logger import log_meals
+from meal_bot import config
+from meal_bot.clients.gemini import analyze_meal
+from meal_bot.core.models import MealEntry
+from meal_bot.integrations.notion import log_meals
 
 logging.basicConfig(
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
@@ -21,7 +21,6 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-ALLOWED_USERNAME = "wolfomania"
 RETRY_CALLBACK_DATA = "retry_last_video"
 
 
@@ -31,7 +30,7 @@ def _is_authorized_user(update: Update) -> bool:
         return False
 
     username = (user.username or "").lower()
-    return username == ALLOWED_USERNAME
+    return username in config.ALLOWED_USERNAMES
 
 
 def _format_logged_entry(entry: MealEntry, index: int) -> str:

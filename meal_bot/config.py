@@ -13,3 +13,8 @@ TELEGRAM_BOT_TOKEN: str = _require("TELEGRAM_BOT_TOKEN")
 GEMINI_API_KEY: str = _require("GEMINI_API_KEY")
 NOTION_TOKEN: str = _require("NOTION_TOKEN")
 NOTION_DATABASE_ID: str = _require("NOTION_DATABASE_ID")
+
+_raw_usernames = os.getenv("ALLOWED_USERNAMES", "")
+ALLOWED_USERNAMES: frozenset[str] = frozenset(
+    u.strip().lower() for u in _raw_usernames.split(",") if u.strip()
+)

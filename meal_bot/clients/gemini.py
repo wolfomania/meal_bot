@@ -8,8 +8,8 @@ import aiofiles
 import google.genai as genai
 from google.genai import types
 
-import config
-from models import MealAnalysis
+from meal_bot import config
+from meal_bot.core.models import MealAnalysis
 
 
 NUTRITION_PROMPT = """You are an expert nutrition analyst.
